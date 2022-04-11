@@ -1,6 +1,6 @@
 <template> 
 <div id='map'>
-  <Notifications :msg='address' />
+  <Notifications :arr="notifications" />
   <yandex-map 
     :settings="settings"
     :coords="coords"
@@ -37,8 +37,11 @@
       address: 'Россия, Москва',
       instance: Object,
       Router: Object,
+      lineGeoAir: Object,
+      activeRouterDist: 'loading...',
       counter: 0,
       MCARmarks: [],
+      notifications: [],
     }),
 
     methods: {
@@ -46,8 +49,9 @@
       this.coords = e.get('coords');
 
       let closestMCAR = ymaps.geoQuery(this.MCARmarks).getClosestTo(this.coords);
-      
-      if(this.counter === 0) { 
+      let airDist = ymaps.coordSystem.geo.getDistance(this.coords, closestMCAR.geometry.getCoordinates())/1000;
+
+      if (this.counter === 0) { 
       this.Router = new ymaps.multiRouter.MultiRoute({   
         referencePoints: [
           e.get('coords'),
@@ -56,26 +60,37 @@
         }, {
         boundsAutoApply: false
       });
-      this.counter++;
       };
+      this.counter++;
+
+      this.Router.model.events.add('requestsuccess', () => {
+        let activeRouter = this.Router.getActiveRoute();
+        this.activeRouterDist = ' ' + activeRouter.properties.get('distance').text;
+      });
 
       this.Router.model.setReferencePoints([
         this.coords,
         closestMCAR,
       ]);
 
-      this.Router.model.events.add('requestsuccess', () => {
-        let activeRouter = this.Router.getActiveRoute();
-        console.log(activeRouter.getPaths().properties.get('distance'));
-      });
-
+      this.instance.geoObjects.remove(this.lineGeoAir);
+      let lineAir = new ymaps.geometry.LineString([
+        this.coords, closestMCAR.geometry.getCoordinates(),
+      ]);
+      this.lineGeoAir = new ymaps.GeoObject({ geometry: lineAir });
+      this.instance.geoObjects.add(this.lineGeoAir);
+      
       ymaps.geocode(e.get('coords')).then((res) => {
       this.instance.geoObjects.add(this.Router);
       this.address = res.geoObjects.get(0).properties.get('metaDataProperty').GeocoderMetaData.text;
-      document.getElementById('notification').style.display = 'block';
+      this.notifications.push({ 
+        msg:`${this.address}`, 
+        dist: `Расстояние по дороге ${this.activeRouterDist}`,
+        distAir: `Расстояние по воздуху ${airDist.toFixed(2)} км`,
+        })
       setTimeout(() => {
-        document.getElementById('notification').style.display = 'none';
-      }, 1500);
+        this.notifications.shift();
+      }, 5000);
       });
 
      },
@@ -106,6 +121,6 @@
 
 <style>
   #map {
-    height: 500px;
+    height: 800px;
   }
 </style>
