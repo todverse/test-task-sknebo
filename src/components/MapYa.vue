@@ -1,3 +1,4 @@
+/* eslint-disable */
 <template> 
 <div id='map'>
   <Notifications :arr="notifications" />

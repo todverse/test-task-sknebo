@@ -1,3 +1,4 @@
+/* eslint-disable */
 <template>
   <div id='notification'>
     <section v-for='elem in arr' :key='elem.msg'>
